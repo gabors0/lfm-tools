@@ -122,32 +122,47 @@ export default async function Home({ searchParams }: HomeProps) {
 
 function LogIn({ authError }: { authError?: string }) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-      <h1 className="text-center text-3xl font-light">Last.fm Toolbox</h1>
-      <p className="max-w-md text-center text-foreground/80">
-        Scrobble tracks and albums, sort your history, find duplicate
-        scrobbles, export your data, and clear or restore loved tracks.
-      </p>
-      <a href="/api/auth/lastfm/login" className={primaryButton}>
-        <Image
-          src="/lastfm-brands-solid-full.svg"
-          width={30}
-          height={30}
-          alt="last.fm logo"
-          className="brightness-0 invert"
+    <main className="flex flex-1 items-center justify-center px-6 py-10">
+      {/* Mirrors the navbar: text hugs a skewed separator from both sides. */}
+      <div className="flex flex-col items-center gap-8 md:flex-row md:items-stretch md:gap-10">
+        <div className="flex max-w-sm flex-col justify-center gap-3 text-center md:items-end md:text-right">
+          {/* The navbar already shows the name; this heading is for search
+              engines and screen readers. */}
+          <h1 className="sr-only">Last.fm Toolbox</h1>
+          <p className="text-lg text-foreground/80">
+            Scrobble tracks and albums, sort your history, find duplicate
+            scrobbles, export your data, and clear or restore loved tracks.
+          </p>
+        </div>
+
+        <span
+          aria-hidden="true"
+          className="h-px w-24 bg-border md:h-auto md:w-px md:-skew-x-12"
         />
-        log in with last.fm
-      </a>
-      <p className="max-w-sm text-center text-xs text-foreground/60">
-        It&apos;s safe: you sign in on Last.fm&apos;s own website through its
-        official API, and this app never sees your password. Your session is
-        stored only in an encrypted cookie in your browser.
-      </p>
-      {authError && (
-        <p role="alert" className="max-w-xl text-center text-sm text-lastfm-start">
-          {authErrors[authError] ?? authErrors.lastfm_unknown}
-        </p>
-      )}
+
+        <div className="flex max-w-sm flex-col items-center justify-center gap-4 text-center md:items-start md:text-left">
+          <a href="/api/auth/lastfm/login" className={primaryButton}>
+            <Image
+              src="/lastfm-brands-solid-full.svg"
+              width={30}
+              height={30}
+              alt="last.fm logo"
+              className="brightness-0 invert"
+            />
+            log in with last.fm
+          </a>
+          <p className="text-xs text-foreground/60">
+            It&apos;s safe: you sign in on Last.fm&apos;s own website through its
+            official API, and this app never sees your password. Your session is
+            stored only in an encrypted cookie in your browser.
+          </p>
+          {authError && (
+            <p role="alert" className="text-sm text-lastfm-start">
+              {authErrors[authError] ?? authErrors.lastfm_unknown}
+            </p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
