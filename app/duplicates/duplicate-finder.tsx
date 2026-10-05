@@ -42,7 +42,7 @@ export function DuplicateFinder({ user }: { user: string }) {
   const [scanned, setScanned] = useState<ScrobbleExportRow[] | null>(null);
   const [shown, setShown] = useState(GROUPS_PER_STEP);
   const [hideDone, setHideDone] = useState(false);
-  const [done, toggleDone] = useDoneSet(user);
+  const [done, setDone] = useDoneSet(user);
   const history = useScrobbleHistory();
   const { phase } = history;
 
@@ -54,18 +54,10 @@ export function DuplicateFinder({ user }: { user: string }) {
     (count, group) => count + group.duplicates.length,
     0,
   );
-  const doneCount = groups.reduce(
-    (count, group) =>
-      count +
-      group.duplicates.filter((timestamp) => done.has(doneKey(group, timestamp)))
-        .length,
-    0,
-  );
-  const visible = hideDone
-    ? groups.filter((group) =>
-        group.duplicates.some((timestamp) => !done.has(doneKey(group, timestamp))),
-      )
-    : groups;
+  const isGroupDone = (group: DuplicateGroup) =>
+    group.duplicates.every((timestamp) => done.has(doneKey(group, timestamp)));
+  const doneCount = groups.filter(isGroupDone).length;
+  const visible = hideDone ? groups.filter((group) => !isGroupDone(group)) : groups;
 
   function scan() {
     setScanned(null);
@@ -80,13 +72,15 @@ export function DuplicateFinder({ user }: { user: string }) {
     <div className="flex flex-col gap-8">
       <div className={`${panel} text-sm leading-relaxed`}>
         <p>
-          Finds the same track scrobbled more than once within a short time,
-          usually because two apps scrobbled the same play.
+          Finds plays that were scrobbled more than once, usually because two
+          apps scrobbled the same song.
         </p>
         <p className="mt-2 text-foreground/60">
-          Last.fm does not let apps delete scrobbles, so each duplicate links
-          to that track in your Last.fm library (around that date), where you
-          can delete it. Tick it off here once it is gone.
+          Last.fm does not let apps delete scrobbles, so each play links to
+          that track in your Last.fm library around that date. There you will
+          see the same play several times (Last.fm rounds the times to the
+          minute): keep one and delete the others. It does not matter which one
+          you keep. Then tick it off here.
         </p>
       </div>
 
@@ -162,11 +156,13 @@ export function DuplicateFinder({ user }: { user: string }) {
             <div>
               <h2 id="results-heading" className="text-2xl font-light">
                 {duplicateCount
-                  ? `${duplicateCount.toLocaleString()} duplicate${duplicateCount === 1 ? "" : "s"}`
+                  ? `${duplicateCount.toLocaleString()} duplicate${duplicateCount === 1 ? "" : "s"} to delete`
                   : "No duplicates"}
               </h2>
               <p className="text-sm text-foreground/60">
-                in {scanned.length.toLocaleString()} scrobbles
+                {groups.length > 0 &&
+                  `${groups.length.toLocaleString()} play${groups.length === 1 ? " was" : "s were"} scrobbled more than once · `}
+                {scanned.length.toLocaleString()} scrobbles scanned
                 {doneCount > 0 && ` · ${doneCount.toLocaleString()} ticked off`}
               </p>
             </div>
@@ -190,9 +186,13 @@ export function DuplicateFinder({ user }: { user: string }) {
                   key={`${group.original}-${group.artist}-${group.track}`}
                   user={user}
                   group={group}
-                  done={done}
-                  hideDone={hideDone}
-                  onToggle={toggleDone}
+                  done={isGroupDone(group)}
+                  onToggle={(value) =>
+                    setDone(
+                      group.duplicates.map((timestamp) => doneKey(group, timestamp)),
+                      value,
+                    )
+                  }
                 />
               ))}
             </ol>
@@ -219,63 +219,54 @@ function DuplicateRow({
   user,
   group,
   done,
-  hideDone,
   onToggle,
 }: {
   user: string;
   group: DuplicateGroup;
-  done: Set<string>;
-  hideDone: boolean;
-  onToggle: (key: string) => void;
+  done: boolean;
+  onToggle: (done: boolean) => void;
 }) {
-  return (
-    <li className="py-4">
-      <p className="font-medium wrap-break-word">{group.track}</p>
-      <p className="truncate text-sm text-foreground/65">
-        {group.artist}
-        {group.album ? ` · ${group.album}` : ""}
-      </p>
-      <ul className="mt-2 flex flex-col gap-1.5 text-sm">
-        <li className="flex flex-wrap items-center gap-x-3 text-foreground/50">
-          <time dateTime={isoDate(group.original)}>{formatTime(group.original)}</time>
-          <span>original, keep</span>
-        </li>
-        {group.duplicates.map((timestamp, index) => {
-          const key = doneKey(group, timestamp);
-          const isDone = done.has(key);
-          const previous = index ? group.duplicates[index - 1] : group.original;
-          if (hideDone && isDone) return null;
+  const times = [group.original, ...group.duplicates];
+  const spread = times.at(-1)! - times[0];
+  const extra = group.duplicates.length;
 
-          return (
-            <li
-              key={timestamp}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${isDone ? "text-foreground/40 line-through" : ""}`}
-            >
-              <time dateTime={isoDate(timestamp)}>{formatTime(timestamp)}</time>
-              <span className="text-lastfm-start">
-                duplicate, {formatGap(timestamp - previous)} later
-              </span>
-              <a
-                href={libraryTrackUrl(user, group.artist, group.track, timestamp)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-foreground/60 hover:text-lastfm-start"
-              >
-                delete on last.fm ↗
-              </a>
-              <label className="flex items-center gap-1.5 text-foreground/60">
-                <input
-                  type="checkbox"
-                  checked={isDone}
-                  onChange={() => onToggle(key)}
-                  className="size-4 accent-lastfm-start"
-                />
-                done
-              </label>
-            </li>
-          );
-        })}
-      </ul>
+  return (
+    <li
+      className={`flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-6 ${done ? "opacity-50" : ""}`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className={`font-medium wrap-break-word ${done ? "line-through" : ""}`}>
+          {group.track}
+        </p>
+        <p className="truncate text-sm text-foreground/65">
+          {group.artist}
+          {group.album ? ` · ${group.album}` : ""}
+        </p>
+        <p className="mt-1 text-sm text-foreground/60">
+          Scrobbled {times.length} times{" "}
+          {spread ? `within ${formatGap(spread)}` : "at the same time"}:{" "}
+          {formatTimes(times)}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+        <a
+          href={libraryTrackUrl(user, group.artist, group.track, group.original)}
+          target="_blank"
+          rel="noreferrer"
+          className="text-lastfm-start underline-offset-2 hover:underline"
+        >
+          keep 1, delete {extra} on last.fm ↗
+        </a>
+        <label className="flex items-center gap-1.5 text-foreground/70">
+          <input
+            type="checkbox"
+            checked={done}
+            onChange={(event) => onToggle(event.target.checked)}
+            className="size-4 accent-lastfm-start"
+          />
+          done
+        </label>
+      </div>
     </li>
   );
 }
@@ -293,25 +284,30 @@ function doneKey(group: DuplicateGroup, timestamp: number) {
   return `${timestamp}|${group.artist.toLowerCase()}|${group.track.toLowerCase()}`;
 }
 
-function formatTime(uts: number) {
-  return new Date(uts * 1000).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-  });
-}
+/** "3 Oct 2026, 10:51:55, 10:51:56 and 10:51:58", repeating the date only when it changes. */
+function formatTimes(times: number[]) {
+  const day = (uts: number) =>
+    new Date(uts * 1000).toLocaleDateString(undefined, { dateStyle: "medium" });
+  const time = (uts: number) =>
+    new Date(uts * 1000).toLocaleTimeString(undefined, { timeStyle: "medium" });
 
-function isoDate(uts: number) {
-  return new Date(uts * 1000).toISOString();
+  return new Intl.ListFormat(undefined, { type: "conjunction" }).format(
+    times.map((uts, index) =>
+      index && day(uts) === day(times[index - 1])
+        ? time(uts)
+        : `${day(uts)}, ${time(uts)}`,
+    ),
+  );
 }
 
 function formatGap(seconds: number) {
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"}`;
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  return rest ? `${minutes}m ${rest}s` : `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
-/** Ticked-off duplicates, remembered in this browser. */
+/** Ticked-off duplicate scrobbles, remembered in this browser. */
 function useDoneSet(user: string) {
   const storageKey = `lfm-tools:duplicates-done:${user}`;
   const [done, setDoneState] = useState<Set<string>>(() => {
@@ -323,10 +319,12 @@ function useDoneSet(user: string) {
     }
   });
 
-  function toggle(key: string) {
+  function set(keys: string[], value: boolean) {
     const next = new Set(done);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    for (const key of keys) {
+      if (value) next.add(key);
+      else next.delete(key);
+    }
 
     setDoneState(next);
     try {
@@ -336,5 +334,5 @@ function useDoneSet(user: string) {
     }
   }
 
-  return [done, toggle] as const;
+  return [done, set] as const;
 }
