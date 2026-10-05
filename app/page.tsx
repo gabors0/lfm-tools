@@ -35,8 +35,9 @@ type HomeSearchParams = {
   album?: string;
   albumArtist?: string;
   ts?: string;
-  // Recent scrobbles page.
+  // Scrobble list: page number and "oldest" for oldest first.
   page?: string;
+  sort?: string;
 };
 
 type HomeProps = {
@@ -64,7 +65,12 @@ export default async function Home({ searchParams }: HomeProps) {
     albumArtist: params.albumArtist ?? "",
     timestamp: positiveInteger(params.ts),
   };
-  const keptPage = page > 1 ? page : null;
+  const order = params.sort === "oldest" ? "oldest" : "newest";
+  // Kept in the scrobble form's links so the list below stays where it is.
+  const listParams = {
+    page: page > 1 ? String(page) : null,
+    sort: order === "oldest" ? "oldest" : null,
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 py-8 sm:gap-14 sm:px-6 sm:py-12">
@@ -80,10 +86,10 @@ export default async function Home({ searchParams }: HomeProps) {
           aria-label="What to scrobble"
           className="mb-8 flex gap-6 border-b border-border"
         >
-          <Tab href={homeHref({ page: keptPage })} active={!albumMode}>
+          <Tab href={homeHref(listParams)} active={!albumMode}>
             a track
           </Tab>
-          <Tab href={homeHref({ mode: "album", page: keptPage })} active={albumMode}>
+          <Tab href={homeHref({ mode: "album", ...listParams })} active={albumMode}>
             an album
           </Tab>
         </nav>
@@ -93,7 +99,7 @@ export default async function Home({ searchParams }: HomeProps) {
             query={params.q?.trim() ?? ""}
             artist={params.artist}
             album={params.album}
-            page={page}
+            keep={listParams}
           />
         ) : (
           <ManualScrobbleForm
@@ -105,7 +111,7 @@ export default async function Home({ searchParams }: HomeProps) {
         )}
       </section>
 
-      <RecentScrobbles user={session.name} page={page} />
+      <RecentScrobbles user={session.name} page={page} order={order} />
     </main>
   );
 }

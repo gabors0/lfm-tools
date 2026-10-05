@@ -11,12 +11,14 @@ The home page is the scrobbler, with your recent scrobbles underneath:
   "just now" or at a specific time within the last 14 days.
 - **Scrobble an album**: search Last.fm, pick tracks from the tracklist, and
   scrobble them back to back so the last one ends when you finished listening.
-- **Recent scrobbles**: love or unlove each scrobble, re-send it with fixes
-  ("edit" fills the form above), or open it in your Last.fm library to delete
-  it.
+- **Scrobble history**: newest or oldest first, with numbered pages. Love or
+  unlove each scrobble, re-send it with fixes ("edit" fills the form above), or
+  open it in your Last.fm library to delete it.
 - **Loved tracks**: unlove single tracks, or **clear all loved tracks** in
   rate-limited batches. You can download a JSON backup first, and stop or resume
-  at any time.
+  at any time. **Restore** loves everything in a backup file again.
+- **Export**: download your whole scrobble history as CSV or JSON, or a backup
+  of your loved tracks.
 
 Last.fm's API has no way to edit or delete scrobbles. "Edit" therefore sends a
 corrected copy at the original time, and the original has to be deleted on the
@@ -135,4 +137,5 @@ parameters and whether authentication is required.
 - `app/api/lastfm/*` — JSON endpoints for browser-side code
 - `app/page.tsx` — login screen, or the scrobbler and recent scrobbles
 - `app/_components/*` — scrobble forms, album search, recent scrobbles list
-- `app/loved/page.tsx` and `app/loved/clear/*` — loved tracks and clear-all
+- `app/loved/*` — loved tracks, clear-all, and restore from a backup
+- `app/export/*` — scrobble history and loved tracks export

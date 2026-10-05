@@ -22,19 +22,21 @@ type AlbumScrobblerProps = {
   query: string;
   artist?: string;
   album?: string;
-  // Recent scrobbles page, kept in links so the history below stays put.
-  page: number;
+  // Scrobble list state (page, sort), kept in links so the list stays put.
+  keep: ListParams;
 };
 
-export function AlbumScrobbler({ query, artist, album, page }: AlbumScrobblerProps) {
+type ListParams = Record<string, string | null>;
+
+export function AlbumScrobbler({ query, artist, album, keep }: AlbumScrobblerProps) {
   return artist && album ? (
-    <AlbumDetails artist={artist} album={album} query={query} page={page} />
+    <AlbumDetails artist={artist} album={album} query={query} keep={keep} />
   ) : (
-    <AlbumSearch query={query} page={page} />
+    <AlbumSearch query={query} keep={keep} />
   );
 }
 
-async function AlbumSearch({ query, page }: { query: string; page: number }) {
+async function AlbumSearch({ query, keep }: { query: string; keep: ListParams }) {
   let albums: AlbumSearchResult[] = [];
   let errorMessage: string | null = null;
 
@@ -55,7 +57,10 @@ async function AlbumSearch({ query, page }: { query: string; page: number }) {
     <div className="flex flex-col gap-6">
       <Form action="/" className="flex gap-2">
         <input type="hidden" name="mode" value="album" />
-        {page > 1 && <input type="hidden" name="page" value={page} />}
+        {Object.entries(keep).map(
+          ([name, value]) =>
+            value && <input key={name} type="hidden" name={name} value={value} />,
+        )}
         <input
           type="search"
           name="q"
@@ -89,7 +94,7 @@ async function AlbumSearch({ query, page }: { query: string; page: number }) {
                   artist: album.artist,
                   album: album.name,
                   q: query,
-                  page: page > 1 ? page : null,
+                  ...keep,
                 })}
                 className="group block"
               >
@@ -113,12 +118,12 @@ async function AlbumDetails({
   artist,
   album,
   query,
-  page,
+  keep,
 }: {
   artist: string;
   album: string;
   query: string;
-  page: number;
+  keep: ListParams;
 }) {
   let info: AlbumInfo | null = null;
   let errorMessage: string | null = null;
@@ -135,7 +140,7 @@ async function AlbumDetails({
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href={homeHref({ mode: "album", q: query, page: page > 1 ? page : null })}
+        href={homeHref({ mode: "album", q: query, ...keep })}
         className="text-sm text-foreground/60 transition-colors hover:text-lastfm-start"
       >
         ← back to search
