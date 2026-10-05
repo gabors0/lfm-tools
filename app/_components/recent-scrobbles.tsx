@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { homeHref } from "@/app/_components/home-href";
 import { LoveButton } from "@/app/_components/love-button";
 import { PageJump } from "@/app/_components/page-jump";
-import { alertBox, panel } from "@/app/_components/styles";
+import { alertBox, panel, segment } from "@/app/_components/styles";
 import {
   getScrobblePage,
   LastFmApiError,
@@ -166,11 +166,7 @@ function SortLink({
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
-      className={`border px-3 py-1 transition-colors first:rounded-l-sm last:rounded-r-sm ${
-        active
-          ? "border-lastfm-start text-lastfm-start"
-          : "border-border text-foreground/60 hover:text-lastfm-start"
-      }`}
+      className={segment(active)}
     >
       {children}
     </Link>

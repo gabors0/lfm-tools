@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { textInput } from "@/app/_components/styles";
+import { segment, textInput } from "@/app/_components/styles";
 import {
   fromDateTimeLocal,
   MAX_SCROBBLE_AGE_SECONDS,
@@ -31,25 +31,26 @@ export function WhenPicker({ label, value, onChange }: WhenPickerProps) {
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 text-sm text-foreground/70">{label}</legend>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={value.mode === "now"}
-            onChange={() => onChange({ mode: "now" })}
-            className="accent-lastfm-start"
-          />
+      <div className="flex text-sm">
+        <button
+          type="button"
+          aria-pressed={value.mode === "now"}
+          onClick={() => onChange({ mode: "now" })}
+          className={segment(value.mode === "now")}
+        >
           just now
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={value.mode === "custom"}
-            onChange={() => onChange({ mode: "custom", uts: nowUts() })}
-            className="accent-lastfm-start"
-          />
+        </button>
+        <button
+          type="button"
+          aria-pressed={value.mode === "custom"}
+          // Keep an already chosen time when clicked again.
+          onClick={() => {
+            if (value.mode !== "custom") onChange({ mode: "custom", uts: nowUts() });
+          }}
+          className={segment(value.mode === "custom")}
+        >
           at a specific time
-        </label>
+        </button>
       </div>
       {value.mode === "custom" && isClient && (
         <input
