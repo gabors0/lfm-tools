@@ -295,10 +295,11 @@ export type ExportPagesResult = ActionResult<{
   totalPages: number;
 }>;
 
-/** Several pages of scrobble history (newest first) up to the `to` time. */
+/** Several pages of scrobble history (newest first) between `from` and `to`. */
 export async function exportScrobblePages(
   pages: number[],
   to: number,
+  from?: number,
 ): Promise<ExportPagesResult> {
   const session = await getSession();
   if (!session) return notLoggedIn;
@@ -309,7 +310,8 @@ export async function exportScrobblePages(
     pages.length > EXPORT_PAGES_PER_CALL ||
     !pages.every((page) => Number.isSafeInteger(page) && page > 0) ||
     !Number.isSafeInteger(to) ||
-    to <= 0
+    to <= 0 ||
+    (from !== undefined && (!Number.isSafeInteger(from) || from < 0 || from >= to))
   ) {
     return { ok: false, error: "Invalid export request." };
   }
@@ -319,7 +321,7 @@ export async function exportScrobblePages(
   try {
     const responses = await Promise.all(
       pages.map((page) =>
-        getRecentTracks(session.name, page, EXPORT_PAGE_SIZE, to),
+        getRecentTracks(session.name, page, EXPORT_PAGE_SIZE, { from, to }),
       ),
     );
     const { total, totalPages } = responses[0].recenttracks["@attr"];

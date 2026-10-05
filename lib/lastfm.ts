@@ -300,8 +300,9 @@ export async function getRecentTracks(
   user: string,
   page = 1,
   limit = 50,
-  // Only scrobbles up to this unix time, so paging is not shifted by new ones.
-  to?: number,
+  // Unix time bounds. A fixed `to` keeps paging from shifting as new
+  // scrobbles arrive.
+  range: { from?: number; to?: number } = {},
 ) {
   const data = await lastFmGet<RecentTracksResponse>({
     method: "user.getRecentTracks",
@@ -309,7 +310,8 @@ export async function getRecentTracks(
     page: String(page),
     limit: String(limit),
     extended: "1",
-    ...(to ? { to: String(to) } : {}),
+    ...(range.from ? { from: String(range.from) } : {}),
+    ...(range.to ? { to: String(range.to) } : {}),
   });
   // A page with a single entry (e.g. only "now playing") comes back as an
   // object rather than an array.

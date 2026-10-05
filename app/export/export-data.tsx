@@ -1,24 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { exportScrobblePages, listLovedTracks } from "@/app/actions";
+import { useState, type ReactNode } from "react";
+import { listLovedTracks } from "@/app/actions";
 import { downloadFile, fileDate } from "@/app/_components/download";
-import { wait } from "@/app/_components/love-batches";
+import {
+  HistoryProgress,
+  useScrobbleHistory,
+} from "@/app/_components/scrobble-history";
 import {
   alertBox,
   panel,
   primaryButton,
   secondaryButton,
 } from "@/app/_components/styles";
-import {
-  EXPORT_PAGES_PER_CALL,
-  nowUts,
-  toCsv,
-  type ScrobbleExportRow,
-} from "@/lib/scrobble-utils";
-
-const RETRY_DELAYS_MS = [2000, 5000, 15000, 60000];
+import { toCsv, type ScrobbleExportRow } from "@/lib/scrobble-utils";
 
 type Format = "csv" | "json";
 
@@ -88,114 +84,11 @@ function Section({
 
 function ScrobbleExport({ user }: { user: string }) {
   const [format, setFormat] = useState<Format>("csv");
-  const [phase, setPhase] = useState<"idle" | "running" | "stopped" | "done">(
-    "idle",
-  );
-  const [fetched, setFetched] = useState(0);
-  const [total, setTotal] = useState<number | null>(null);
-  const [rate, setRate] = useState<number | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Large exports can hold 100k+ rows, so keep them out of React state.
-  const rows = useRef<ScrobbleExportRow[]>([]);
-  const nextPage = useRef(1);
-  const totalPages = useRef<number | null>(null);
-  const to = useRef(0);
-  const stopRequested = useRef(false);
+  const history = useScrobbleHistory();
+  const { phase, fetched } = history;
 
-  useEffect(
-    () => () => {
-      stopRequested.current = true;
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (phase !== "running") return;
-
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [phase]);
-
-  function start() {
-    rows.current = [];
-    nextPage.current = 1;
-    totalPages.current = null;
-    // Pin the end so scrobbles made during the export don't shift the pages.
-    to.current = nowUts();
-    setFetched(0);
-    setTotal(null);
-    void run();
-  }
-
-  async function fetchPages(pages: number[]) {
-    for (let attempt = 0; ; attempt++) {
-      const result = await exportScrobblePages(pages, to.current).catch(() => null);
-      if (result?.ok) return result;
-
-      const delay = RETRY_DELAYS_MS[attempt];
-      if (delay === undefined || stopRequested.current) {
-        setError(
-          result?.error ??
-            "Lost the connection to the server. Resume to continue where it stopped.",
-        );
-        return null;
-      }
-
-      setNotice(
-        `${result?.error ?? "Connection problem"}. Retrying in ${delay / 1000} seconds…`,
-      );
-      await wait(delay, stopRequested);
-      setNotice(null);
-    }
-  }
-
-  async function run() {
-    stopRequested.current = false;
-    setPhase("running");
-    setError(null);
-    setNotice(null);
-
-    const startedAt = Date.now();
-    const startedWith = rows.current.length;
-
-    while (!stopRequested.current) {
-      const known = totalPages.current;
-      if (known !== null && nextPage.current > known) break;
-
-      // The first call learns the page count; later calls fetch several pages.
-      const last =
-        known === null
-          ? nextPage.current
-          : Math.min(known, nextPage.current + EXPORT_PAGES_PER_CALL - 1);
-      const pages = Array.from(
-        { length: last - nextPage.current + 1 },
-        (_, index) => nextPage.current + index,
-      );
-
-      const result = await fetchPages(pages);
-      if (!result) break;
-
-      rows.current.push(...result.rows);
-      totalPages.current = result.totalPages;
-      nextPage.current = last + 1;
-      setTotal(result.total);
-      setFetched(rows.current.length);
-      setRate(
-        (rows.current.length - startedWith) / ((Date.now() - startedAt) / 1000),
-      );
-    }
-
-    setNotice(null);
-    const finished =
-      totalPages.current !== null && nextPage.current > totalPages.current;
-    setPhase(finished ? "done" : "stopped");
-    if (finished && rows.current.length) save(format);
-  }
-
-  function save(as: Format) {
-    const records = rows.current.map((row) => ({
+  function save(rows: ScrobbleExportRow[], as: Format) {
+    const records = rows.map((row) => ({
       date: new Date(row.timestamp * 1000).toISOString(),
       timestamp: row.timestamp,
       artist: row.artist,
@@ -217,37 +110,42 @@ function ScrobbleExport({ user }: { user: string }) {
     }
   }
 
-  const remaining = total === null ? null : Math.max(0, total - fetched);
-
   return (
     <div className="flex flex-col gap-4">
       <FormatPicker value={format} onChange={setFormat} disabled={phase === "running"} />
 
       <div className="flex flex-wrap gap-2">
         {phase !== "running" && (
-          <button type="button" onClick={start} className={primaryButton}>
+          <button
+            type="button"
+            onClick={() =>
+              history.start({
+                onDone: (rows) => {
+                  if (rows.length) save(rows, format);
+                },
+              })
+            }
+            className={primaryButton}
+          >
             {phase === "idle" ? "export scrobbles" : "start over"}
           </button>
         )}
         {phase === "running" && (
-          <button
-            type="button"
-            onClick={() => {
-              stopRequested.current = true;
-              setNotice("Stopping after the current request…");
-            }}
-            className={secondaryButton}
-          >
+          <button type="button" onClick={history.stop} className={secondaryButton}>
             stop
           </button>
         )}
         {phase === "stopped" && (
-          <button type="button" onClick={() => void run()} className={secondaryButton}>
+          <button type="button" onClick={history.resume} className={secondaryButton}>
             resume
           </button>
         )}
         {(phase === "stopped" || phase === "done") && fetched > 0 && (
-          <button type="button" onClick={() => save(format)} className={secondaryButton}>
+          <button
+            type="button"
+            onClick={() => save(history.rows.current, format)}
+            className={secondaryButton}
+          >
             {phase === "done"
               ? `download again (.${format})`
               : `download the ${fetched.toLocaleString()} fetched so far`}
@@ -255,45 +153,11 @@ function ScrobbleExport({ user }: { user: string }) {
         )}
       </div>
 
-      {phase !== "idle" && (
-        <div className="flex flex-col gap-2">
-          <div
-            role="progressbar"
-            aria-label="Exporting scrobbles"
-            aria-valuemin={0}
-            aria-valuemax={total ?? 0}
-            aria-valuenow={fetched}
-            className="h-2 overflow-hidden rounded-full bg-surface"
-          >
-            <div
-              className="h-full bg-linear-to-r from-lastfm-start to-lastfm-end transition-[width]"
-              style={{ width: total ? `${(fetched / total) * 100}%` : "0%" }}
-            />
-          </div>
-          <p className="text-sm text-foreground/70" aria-live="polite">
-            {total === null
-              ? "Starting…"
-              : `Fetched ${fetched.toLocaleString()} of ${total.toLocaleString()} scrobbles`}
-            {phase === "running" &&
-              remaining !== null &&
-              remaining > 0 &&
-              rate !== null &&
-              rate > 0 &&
-              ` · about ${formatMinutes(remaining / rate)} left`}
-            {phase === "done" &&
-              (fetched
-                ? " · done, your download has started"
-                : " · there are no scrobbles to export")}
-          </p>
-        </div>
-      )}
-
-      {notice && <p className="text-sm text-foreground/70">{notice}</p>}
-      {error && (
-        <p role="alert" className={alertBox}>
-          {error}
-        </p>
-      )}
+      <HistoryProgress
+        history={history}
+        label="Exporting scrobbles"
+        doneText={fetched ? "done, your download has started" : "there are no scrobbles to export"}
+      />
     </div>
   );
 }
@@ -377,9 +241,4 @@ function FormatPicker({
       ))}
     </fieldset>
   );
-}
-
-function formatMinutes(seconds: number) {
-  const minutes = Math.ceil(seconds / 60);
-  return minutes <= 1 ? "a minute" : `${minutes} minutes`;
 }
