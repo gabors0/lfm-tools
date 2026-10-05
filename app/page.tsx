@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AlbumScrobbler } from "@/app/_components/album-scrobbler";
 import { homeHref } from "@/app/_components/home-href";
@@ -43,6 +44,9 @@ type HomeSearchParams = {
 type HomeProps = {
   searchParams: Promise<HomeSearchParams>;
 };
+
+// Search params (pagination, pre-fills) all render the same page.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
@@ -119,6 +123,11 @@ export default async function Home({ searchParams }: HomeProps) {
 function LogIn({ authError }: { authError?: string }) {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+      <h1 className="text-center text-3xl font-light">Last.fm Toolbox</h1>
+      <p className="max-w-md text-center text-foreground/80">
+        Scrobble tracks and albums, sort your history, find duplicate
+        scrobbles, export your data, and clear or restore loved tracks.
+      </p>
       <a href="/api/auth/lastfm/login" className={primaryButton}>
         <Image
           src="/lastfm-brands-solid-full.svg"

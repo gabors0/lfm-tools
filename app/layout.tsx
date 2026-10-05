@@ -3,6 +3,7 @@ import Link from "next/link";
 import { logout } from "@/app/actions";
 import { MobileMenu } from "@/app/_components/mobile-menu";
 import { getSession } from "@/lib/session";
+import { siteDescription, siteName, siteUrl } from "@/lib/site";
 import "./globals.css";
 
 const pages = [
@@ -21,9 +22,35 @@ const menuLink =
   "px-4 py-3 text-left transition-colors hover:text-lastfm-start";
 
 export const metadata: Metadata = {
-  title: "Last.fm Toolbox",
-  description:
-    "Scrobble tracks and albums to Last.fm and manage your loved tracks.",
+  metadataBase: siteUrl,
+  title: {
+    default: `${siteName}: scrobble, export and clean up your Last.fm`,
+    template: `%s | ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  keywords: [
+    "last.fm",
+    "lastfm",
+    "scrobbler",
+    "manual scrobble",
+    "scrobble album",
+    "duplicate scrobbles",
+    "export last.fm history",
+    "loved tracks",
+  ],
+  openGraph: {
+    type: "website",
+    siteName,
+    title: `${siteName}: scrobble, export and clean up your Last.fm`,
+    description: siteDescription,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteName}: scrobble, export and clean up your Last.fm`,
+    description: siteDescription,
+  },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
