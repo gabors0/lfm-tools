@@ -17,6 +17,9 @@ The home page is the scrobbler, with your recent scrobbles underneath:
 - **Loved tracks**: unlove single tracks, or **clear all loved tracks** in
   rate-limited batches. You can download a JSON backup first, and stop or resume
   at any time. **Restore** loves everything in a backup file again.
+- **Duplicates**: scan a time range for the same track scrobbled again within a
+  few minutes (two apps scrobbling one play), with a link to each one in your
+  Last.fm library for deleting and a tick-off list.
 - **Export**: download your whole scrobble history as CSV or JSON, or a backup
   of your loved tracks.
 
@@ -138,4 +141,5 @@ parameters and whether authentication is required.
 - `app/page.tsx` — login screen, or the scrobbler and recent scrobbles
 - `app/_components/*` — scrobble forms, album search, recent scrobbles list
 - `app/loved/*` — loved tracks, clear-all, and restore from a backup
+- `app/duplicates/*` — duplicate scrobble finder
 - `app/export/*` — scrobble history and loved tracks export

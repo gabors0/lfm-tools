@@ -7,6 +7,7 @@ import "./globals.css";
 
 const pages = [
   ["loved tracks", "/loved"],
+  ["duplicates", "/duplicates"],
   ["export", "/export"],
 ];
 const externalLinks = [
@@ -40,7 +41,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               last.fm toolbox
             </Link>
             {pages.map(([label, href]) => (
-              <div key={href} className="hidden h-full items-center md:flex">
+              <div key={href} className="hidden h-full items-center lg:flex">
                 <Separator />
                 <Link href={href} className={navLink}>
                   {label}
@@ -49,7 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             ))}
           </div>
 
-          <div className="hidden h-full items-center md:flex">
+          <div className="hidden h-full items-center lg:flex">
             {externalLinks.map(([label, href], index) => (
               <div key={href} className="flex h-full items-center">
                 {index > 0 && <Separator />}

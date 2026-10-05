@@ -7,7 +7,7 @@ export function MobileMenu({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="flex h-full items-center md:hidden"
+      className="flex h-full items-center lg:hidden"
       onKeyDown={(event) => {
         if (event.key === "Escape") setOpen(false);
       }}

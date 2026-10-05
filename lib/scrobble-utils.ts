@@ -99,9 +99,26 @@ function lastFmPathSegment(value: string) {
   return encodeURIComponent(value).replace(/%20/g, "+");
 }
 
-/** The user's library page for a track, where its scrobbles can be deleted. */
-export function libraryTrackUrl(user: string, artist: string, track: string) {
-  return `https://www.last.fm/user/${encodeURIComponent(user)}/library/music/${lastFmPathSegment(artist)}/_/${lastFmPathSegment(track)}`;
+/**
+ * The user's library page for a track, where its scrobbles can be deleted.
+ * With `around`, it is filtered to the days around that time (local dates,
+ * with a day either side for time zone differences).
+ */
+export function libraryTrackUrl(
+  user: string,
+  artist: string,
+  track: string,
+  around?: number,
+) {
+  const url = `https://www.last.fm/user/${encodeURIComponent(user)}/library/music/${lastFmPathSegment(artist)}/_/${lastFmPathSegment(track)}`;
+  if (around === undefined) return url;
+
+  const day = 24 * 60 * 60;
+  return `${url}?from=${localDate(around - day)}&to=${localDate(around + day)}`;
+}
+
+function localDate(uts: number) {
+  return toDateTimeLocal(uts).slice(0, 10);
 }
 
 export function formatDuration(seconds: number) {
@@ -137,4 +154,51 @@ export function toCsv(rows: Record<string, string | number | boolean>[]) {
     columns.join(","),
     ...rows.map((row) => columns.map((column) => field(row[column])).join(",")),
   ].join("\r\n")}\r\n`;
+}
+
+export type DuplicateGroup = TrackRef & {
+  album: string;
+  // The first scrobble, which is kept.
+  original: number;
+  // Later scrobbles of the same track within the window.
+  duplicates: number[];
+};
+
+/**
+ * Groups scrobbles of the same artist and track that are at most
+ * `windowSeconds` apart (each one compared with the previous of the group).
+ * Returns the groups that have duplicates, newest first.
+ */
+export function findDuplicates(
+  rows: ScrobbleExportRow[],
+  windowSeconds: number,
+) {
+  const ascending = [...rows].sort((left, right) => left.timestamp - right.timestamp);
+  const latest = new Map<string, { group: DuplicateGroup; last: number }>();
+  const groups: DuplicateGroup[] = [];
+
+  for (const row of ascending) {
+    const key = `${row.artist.trim().toLowerCase()}\u0000${row.track.trim().toLowerCase()}`;
+    const open = latest.get(key);
+
+    if (open && row.timestamp - open.last <= windowSeconds) {
+      if (!open.group.duplicates.length) groups.push(open.group);
+      open.group.duplicates.push(row.timestamp);
+      open.group.album ||= row.album;
+      open.last = row.timestamp;
+    } else {
+      latest.set(key, {
+        group: {
+          artist: row.artist,
+          track: row.track,
+          album: row.album,
+          original: row.timestamp,
+          duplicates: [],
+        },
+        last: row.timestamp,
+      });
+    }
+  }
+
+  return groups.reverse();
 }
