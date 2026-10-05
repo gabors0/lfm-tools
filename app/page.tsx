@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const keptPage = page > 1 ? page : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-14 px-6 py-12">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 py-8 sm:gap-14 sm:px-6 sm:py-12">
       <section id="scrobble" aria-labelledby="scrobble-heading" className="scroll-mt-6">
         <header className="mb-6">
           <p className="text-sm text-foreground/60">{session.name}</p>

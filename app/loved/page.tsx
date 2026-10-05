@@ -48,7 +48,7 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
   const totalPages = Number(lovedtracks["@attr"].totalPages);
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
+    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-foreground/60">{session.name}</p>
@@ -72,8 +72,8 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
         {lovedtracks.track.length ? (
           <ol className="divide-y divide-border border-y border-border">
             {lovedtracks.track.map((track, index) => (
-              <li key={`${track.url}-${track.date.uts}`} className="flex items-center gap-4 py-4">
-                <span className="w-8 shrink-0 text-right text-sm text-foreground/40">
+              <li key={`${track.url}-${track.date.uts}`} className="flex items-center gap-3 py-4 sm:gap-4">
+                <span className="hidden w-8 shrink-0 text-right text-sm text-foreground/40 sm:block">
                   {(page - 1) * 50 + index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -81,12 +81,15 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
                     href={track.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium hover:text-lastfm-start"
+                    className="font-medium wrap-break-word hover:text-lastfm-start"
                   >
                     {track.name}
                   </a>
                   <p className="truncate text-sm text-foreground/65">
                     {track.artist.name}
+                  </p>
+                  <p className="mt-1 text-xs text-foreground/50 sm:hidden">
+                    {track.date["#text"]}
                   </p>
                 </div>
                 <time
