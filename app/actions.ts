@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   getAllLovedTracks,
@@ -78,6 +79,7 @@ export async function scrobbleTrack(
         albumArtist: text(input.albumArtist),
       },
     ]);
+    refreshIfScrobbled(outcomes);
     return { ok: true, outcomes };
   } catch (error) {
     return { ok: false, error: errorMessage(error, "Could not scrobble.") };
@@ -154,6 +156,7 @@ export async function scrobbleAlbum(
       outcomes.push(...(await scrobbleTracks(session.key, batch)));
     }
   } catch (error) {
+    refreshIfScrobbled(outcomes);
     const message = errorMessage(error, "Could not scrobble the album.");
     return {
       ok: false,
@@ -163,6 +166,7 @@ export async function scrobbleAlbum(
     };
   }
 
+  refreshIfScrobbled(outcomes);
   return { ok: true, outcomes };
 }
 
@@ -270,6 +274,12 @@ export async function unloveTracks(tracks: TrackRef[]): Promise<UnloveResult> {
   }
 
   return { ok: true, processed, failed, rateLimited };
+}
+
+// Re-render the page in the same response so the recent scrobbles list
+// shows what was just sent.
+function refreshIfScrobbled(outcomes: ScrobbleOutcome[]) {
+  if (outcomes.some((outcome) => outcome.accepted)) refresh();
 }
 
 function text(value: unknown) {

@@ -22,9 +22,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               last.fm toolbox
             </Link>
             {[
-              ["scrobble", "/scrobble"],
               ["loved tracks", "/loved"],
-              ["scrobbles", "/scrobbles"],
             ].map(([label, href]) => (
               <div key={href} className="flex h-full items-center">
                 <span

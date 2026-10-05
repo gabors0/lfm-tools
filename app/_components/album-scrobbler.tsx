@@ -1,8 +1,8 @@
 import Form from "next/form";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { AlbumPicker } from "@/app/_components/album-picker";
+import { homeHref } from "@/app/_components/home-href";
 import {
   alertBox,
   panel,
@@ -17,106 +17,24 @@ import {
   type AlbumSearchResult,
   type LastFmImage,
 } from "@/lib/lastfm";
-import { getSession } from "@/lib/session";
-import { AlbumPicker } from "./album-picker";
-import { ManualScrobbleForm } from "./manual-form";
 
-type ScrobblePageProps = {
-  searchParams: Promise<{
-    mode?: string;
-    q?: string;
-    artist?: string;
-    track?: string;
-    album?: string;
-    albumArtist?: string;
-    ts?: string;
-  }>;
+type AlbumScrobblerProps = {
+  query: string;
+  artist?: string;
+  album?: string;
+  // Recent scrobbles page, kept in links so the history below stays put.
+  page: number;
 };
 
-export default async function ScrobblePage({ searchParams }: ScrobblePageProps) {
-  const session = await getSession();
-  if (!session) redirect("/");
-
-  const params = await searchParams;
-  const albumMode = params.mode === "album";
-  const requestedTimestamp = Number(params.ts);
-  const initial = {
-    artist: params.artist ?? "",
-    track: params.track ?? "",
-    album: params.album ?? "",
-    albumArtist: params.albumArtist ?? "",
-    timestamp:
-      Number.isSafeInteger(requestedTimestamp) && requestedTimestamp > 0
-        ? requestedTimestamp
-        : null,
-  };
-
-  return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
-      <header className="mb-8">
-        <p className="text-sm text-foreground/60">{session.name}</p>
-        <h1 className="text-3xl font-light">Scrobble</h1>
-      </header>
-
-      <nav
-        aria-label="What to scrobble"
-        className="mb-8 flex gap-6 border-b border-border"
-      >
-        <Tab href="/scrobble" active={!albumMode}>
-          a track
-        </Tab>
-        <Tab href="/scrobble?mode=album" active={albumMode}>
-          an album
-        </Tab>
-      </nav>
-
-      {albumMode ? (
-        params.artist && params.album ? (
-          <AlbumDetails
-            artist={params.artist}
-            album={params.album}
-            query={params.q ?? ""}
-          />
-        ) : (
-          <AlbumSearch query={params.q?.trim() ?? ""} />
-        )
-      ) : (
-        <ManualScrobbleForm
-          // Remount when an edit link pre-fills different values.
-          key={JSON.stringify(initial)}
-          user={session.name}
-          initial={initial}
-        />
-      )}
-    </main>
+export function AlbumScrobbler({ query, artist, album, page }: AlbumScrobblerProps) {
+  return artist && album ? (
+    <AlbumDetails artist={artist} album={album} query={query} page={page} />
+  ) : (
+    <AlbumSearch query={query} page={page} />
   );
 }
 
-function Tab({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={`-mb-px border-b-2 pb-2 transition-colors ${
-        active
-          ? "border-lastfm-start"
-          : "border-transparent text-foreground/60 hover:text-lastfm-start"
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-async function AlbumSearch({ query }: { query: string }) {
+async function AlbumSearch({ query, page }: { query: string; page: number }) {
   let albums: AlbumSearchResult[] = [];
   let errorMessage: string | null = null;
 
@@ -135,8 +53,9 @@ async function AlbumSearch({ query }: { query: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Form action="/scrobble" className="flex gap-2">
+      <Form action="/" className="flex gap-2">
         <input type="hidden" name="mode" value="album" />
+        {page > 1 && <input type="hidden" name="page" value={page} />}
         <input
           type="search"
           name="q"
@@ -165,12 +84,13 @@ async function AlbumSearch({ query }: { query: string }) {
           {albums.map((album) => (
             <li key={album.url}>
               <Link
-                href={`/scrobble?${new URLSearchParams({
+                href={homeHref({
                   mode: "album",
                   artist: album.artist,
                   album: album.name,
                   q: query,
-                })}`}
+                  page: page > 1 ? page : null,
+                })}
                 className="group block"
               >
                 <Cover image={album.image} />
@@ -193,10 +113,12 @@ async function AlbumDetails({
   artist,
   album,
   query,
+  page,
 }: {
   artist: string;
   album: string;
   query: string;
+  page: number;
 }) {
   let info: AlbumInfo | null = null;
   let errorMessage: string | null = null;
@@ -213,7 +135,7 @@ async function AlbumDetails({
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href={`/scrobble?${new URLSearchParams({ mode: "album", q: query })}`}
+        href={homeHref({ mode: "album", q: query, page: page > 1 ? page : null })}
         className="text-sm text-foreground/60 transition-colors hover:text-lastfm-start"
       >
         ← back to search
@@ -230,7 +152,7 @@ async function AlbumDetails({
               <Cover image={info.image} />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-2xl font-light">{info.name}</h2>
+              <h3 className="truncate text-2xl font-light">{info.name}</h3>
               <p className="truncate text-foreground/65">{info.artist}</p>
             </div>
           </div>
@@ -244,7 +166,7 @@ async function AlbumDetails({
           ) : (
             <p className={panel}>
               Last.fm has no tracklist for this album. Use the{" "}
-              <Link href="/scrobble" className="text-lastfm-start hover:underline">
+              <Link href="/" className="text-lastfm-start hover:underline">
                 track form
               </Link>{" "}
               instead.

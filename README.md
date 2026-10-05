@@ -5,12 +5,15 @@ itself does not offer.
 
 ## Features
 
+The home page is the scrobbler, with your recent scrobbles underneath:
+
 - **Scrobble a track**: artist, track, optional album and album artist, either
   "just now" or at a specific time within the last 14 days.
 - **Scrobble an album**: search Last.fm, pick tracks from the tracklist, and
   scrobble them back to back so the last one ends when you finished listening.
 - **Recent scrobbles**: love or unlove each scrobble, re-send it with fixes
-  ("edit"), or open it in your Last.fm library to delete it.
+  ("edit" fills the form above), or open it in your Last.fm library to delete
+  it.
 - **Loved tracks**: unlove single tracks, or **clear all loved tracks** in
   rate-limited batches. You can download a JSON backup first, and stop or resume
   at any time.
@@ -130,6 +133,6 @@ parameters and whether authentication is required.
 - `lib/scrobble-utils.ts` — shared, client-safe helpers (timestamps, limits, URLs)
 - `app/actions.ts` — Server Actions for scrobbling, loving, and clearing loved tracks
 - `app/api/lastfm/*` — JSON endpoints for browser-side code
-- `app/scrobble/*` — track and album scrobbling
-- `app/scrobbles/page.tsx` — recent scrobbles with love, edit, and delete links
+- `app/page.tsx` — login screen, or the scrobbler and recent scrobbles
+- `app/_components/*` — scrobble forms, album search, recent scrobbles list
 - `app/loved/page.tsx` and `app/loved/clear/*` — loved tracks and clear-all

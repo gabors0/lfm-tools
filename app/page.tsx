@@ -1,5 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { AlbumScrobbler } from "@/app/_components/album-scrobbler";
+import { homeHref } from "@/app/_components/home-href";
+import { ManualScrobbleForm } from "@/app/_components/manual-form";
+import { RecentScrobbles } from "@/app/_components/recent-scrobbles";
+import { primaryButton } from "@/app/_components/styles";
 import { getSession } from "@/lib/session";
 
 const authErrors: Record<string, string> = {
@@ -16,28 +23,97 @@ const authErrors: Record<string, string> = {
   server: "The server could not save the login. Check the terminal for details.",
 };
 
+type HomeSearchParams = {
+  auth_error?: string;
+  token?: string;
+  // Scrobble form: "album" switches to album search.
+  mode?: string;
+  q?: string;
+  // Pre-filled by "edit" on a recent scrobble, or the chosen album.
+  artist?: string;
+  track?: string;
+  album?: string;
+  albumArtist?: string;
+  ts?: string;
+  // Recent scrobbles page.
+  page?: string;
+};
+
 type HomeProps = {
-  searchParams: Promise<{ auth_error?: string; token?: string }>;
+  searchParams: Promise<HomeSearchParams>;
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  const { auth_error: authError, token } = await searchParams;
+  const params = await searchParams;
 
   // Some existing Last.fm API accounts use the site root as their callback.
   // Forward that token into the dedicated handler so those accounts still work.
-  if (token) {
-    redirect(`/api/auth/lastfm/callback?token=${encodeURIComponent(token)}`);
+  if (params.token) {
+    redirect(`/api/auth/lastfm/callback?token=${encodeURIComponent(params.token)}`);
   }
 
-  // Scrobbling is the main page once logged in.
-  if (await getSession()) redirect("/scrobble");
+  const session = await getSession();
+  if (!session) return <LogIn authError={params.auth_error} />;
+
+  const page = positiveInteger(params.page) ?? 1;
+  const albumMode = params.mode === "album";
+  const initial = {
+    artist: params.artist ?? "",
+    track: params.track ?? "",
+    album: params.album ?? "",
+    albumArtist: params.albumArtist ?? "",
+    timestamp: positiveInteger(params.ts),
+  };
+  const keptPage = page > 1 ? page : null;
 
   return (
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-14 px-6 py-12">
+      <section id="scrobble" aria-labelledby="scrobble-heading" className="scroll-mt-6">
+        <header className="mb-6">
+          <p className="text-sm text-foreground/60">{session.name}</p>
+          <h1 id="scrobble-heading" className="text-3xl font-light">
+            Scrobble
+          </h1>
+        </header>
+
+        <nav
+          aria-label="What to scrobble"
+          className="mb-8 flex gap-6 border-b border-border"
+        >
+          <Tab href={homeHref({ page: keptPage })} active={!albumMode}>
+            a track
+          </Tab>
+          <Tab href={homeHref({ mode: "album", page: keptPage })} active={albumMode}>
+            an album
+          </Tab>
+        </nav>
+
+        {albumMode ? (
+          <AlbumScrobbler
+            query={params.q?.trim() ?? ""}
+            artist={params.artist}
+            album={params.album}
+            page={page}
+          />
+        ) : (
+          <ManualScrobbleForm
+            // Remount when an edit link pre-fills different values.
+            key={JSON.stringify(initial)}
+            user={session.name}
+            initial={initial}
+          />
+        )}
+      </section>
+
+      <RecentScrobbles user={session.name} page={page} />
+    </main>
+  );
+}
+
+function LogIn({ authError }: { authError?: string }) {
+  return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-      <a
-        href="/api/auth/lastfm/login"
-        className="flex items-center gap-2 rounded-sm bg-linear-to-b from-lastfm-start to-lastfm-end px-5 py-2.5 font-medium text-white transition-[filter] hover:brightness-115 active:translate-y-px"
-      >
+      <a href="/api/auth/lastfm/login" className={primaryButton}>
         <Image
           src="/lastfm-brands-solid-full.svg"
           width={30}
@@ -54,4 +130,33 @@ export default async function Home({ searchParams }: HomeProps) {
       )}
     </main>
   );
+}
+
+function Tab({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`-mb-px border-b-2 pb-2 transition-colors ${
+        active
+          ? "border-lastfm-start"
+          : "border-transparent text-foreground/60 hover:text-lastfm-start"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function positiveInteger(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }

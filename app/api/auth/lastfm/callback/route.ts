@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     await saveSession(session);
     console.info("[lastfm auth callback] login completed");
 
-    const response = NextResponse.redirect(new URL("/scrobble", request.url));
+    const response = NextResponse.redirect(new URL("/", request.url));
     response.cookies.delete(AUTH_STARTED_COOKIE);
     return response;
   } catch (error) {
