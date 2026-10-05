@@ -129,6 +129,11 @@ function LogIn({ authError }: { authError?: string }) {
         />
         log in with last.fm
       </a>
+      <p className="max-w-sm text-center text-xs text-foreground/60">
+        It&apos;s safe: you sign in on Last.fm&apos;s own website through its
+        official API, and this app never sees your password. Your session is
+        stored only in an encrypted cookie in your browser.
+      </p>
       {authError && (
         <p role="alert" className="max-w-xl text-center text-sm text-lastfm-start">
           {authErrors[authError] ?? authErrors.lastfm_unknown}
