@@ -5,7 +5,10 @@ import { MobileMenu } from "@/app/_components/mobile-menu";
 import { getSession } from "@/lib/session";
 import "./globals.css";
 
-const pages = [["loved tracks", "/loved"]];
+const pages = [
+  ["loved tracks", "/loved"],
+  ["export", "/export"],
+];
 const externalLinks = [
   ["ko-fi", "https://ko-fi.com/gabors0"],
   ["github", "https://github.com/gabors0/lfm-tools"],

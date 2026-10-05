@@ -9,7 +9,11 @@ export const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
 export const FALLBACK_TRACK_DURATION_SECONDS = 180;
 export const MAX_SCROBBLES_PER_REQUEST = 50;
 export const MAX_ALBUM_TRACKS = 200;
-export const UNLOVE_BATCH_SIZE = 20;
+export const LOVE_BATCH_SIZE = 20;
+export const SCROBBLES_PER_PAGE = 50;
+// Export reads the history in pages of 200, a few pages per server call.
+export const EXPORT_PAGE_SIZE = 200;
+export const EXPORT_PAGES_PER_CALL = 4;
 
 export type TrackRef = {
   artist: string;
@@ -19,6 +23,12 @@ export type TrackRef = {
 export type LovedTrackBackup = TrackRef & {
   url: string;
   lovedAt: number;
+};
+
+export type ScrobbleExportRow = TrackRef & {
+  album: string;
+  timestamp: number;
+  loved: boolean;
 };
 
 export type ScrobbleOutcome = TrackRef & {
@@ -111,4 +121,20 @@ export function toDateTimeLocal(uts: number) {
 export function fromDateTimeLocal(value: string) {
   const time = new Date(value).getTime();
   return Number.isNaN(time) ? null : Math.floor(time / 1000);
+}
+
+/** CSV text with a header row; starts with a BOM so Excel reads it as UTF-8. */
+export function toCsv(rows: Record<string, string | number | boolean>[]) {
+  if (!rows.length) return "";
+
+  const columns = Object.keys(rows[0]);
+  const field = (value: string | number | boolean) => {
+    const text = String(value);
+    return /[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+
+  return `\uFEFF${[
+    columns.join(","),
+    ...rows.map((row) => columns.map((column) => field(row[column])).join(",")),
+  ].join("\r\n")}\r\n`;
 }

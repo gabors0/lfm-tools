@@ -54,10 +54,16 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
             <p className="text-sm text-foreground/60">{session.name}</p>
             <h1 className="text-3xl font-light">Loved tracks</h1>
           </div>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <p className="text-foreground/60">
               {Number(lovedtracks["@attr"].total).toLocaleString()} total
             </p>
+            <Link
+              href="/loved/restore"
+              className="rounded-sm border border-border px-3 py-1.5 transition-colors hover:border-lastfm-start hover:text-lastfm-start"
+            >
+              restore…
+            </Link>
             {Number(lovedtracks["@attr"].total) > 0 && (
               <Link
                 href="/loved/clear"

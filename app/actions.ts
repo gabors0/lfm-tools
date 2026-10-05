@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   getAllLovedTracks,
+  getRecentTracks,
   LastFmApiError,
   scrobbleTracks,
   setTrackLoved,
@@ -12,14 +13,17 @@ import {
 import {
   backToBackTimestamps,
   chunk,
+  EXPORT_PAGE_SIZE,
+  EXPORT_PAGES_PER_CALL,
+  LOVE_BATCH_SIZE,
   MAX_ALBUM_TRACKS,
   MAX_SCROBBLE_AGE_SECONDS,
   MAX_SCROBBLES_PER_REQUEST,
   nowUts,
   timestampProblem,
-  UNLOVE_BATCH_SIZE,
   type ActionResult,
   type LovedTrackBackup,
+  type ScrobbleExportRow,
   type ScrobbleOutcome,
   type TrackRef,
 } from "@/lib/scrobble-utils";
@@ -29,7 +33,8 @@ import { clearSession, getSession } from "@/lib/session";
 const RATE_LIMIT_ERROR = 29;
 const FATAL_ERRORS = new Set([9, 10, 26]);
 // Stay under Last.fm's limit of roughly 5 requests per second.
-const UNLOVE_MIN_INTERVAL_MS = 250;
+const LOVE_MIN_INTERVAL_MS = 250;
+const EXPORT_MIN_CALL_MS = 1000;
 
 const notLoggedIn = {
   ok: false,
@@ -222,22 +227,27 @@ export async function listLovedTracks(): Promise<
   }
 }
 
-export type UnloveResult = ActionResult<{
-  // How many tracks from the start of the batch were handled (removed or failed).
+export type LoveBatchResult = ActionResult<{
+  // How many tracks from the start of the batch were handled (done or failed).
   processed: number;
   failed: (TrackRef & { error: string })[];
   rateLimited: boolean;
 }>;
 
-export async function unloveTracks(tracks: TrackRef[]): Promise<UnloveResult> {
+/** Love or unlove a batch of tracks, throttled to Last.fm's rate limit. */
+export async function setTracksLoved(
+  tracks: TrackRef[],
+  loved: boolean,
+): Promise<LoveBatchResult> {
   const session = await getSession();
   if (!session) return notLoggedIn;
 
   const refs = Array.isArray(tracks) ? tracks.map(trackRef) : [];
   if (
     !refs.length ||
-    refs.length > UNLOVE_BATCH_SIZE ||
-    refs.some((ref) => !ref)
+    refs.length > LOVE_BATCH_SIZE ||
+    refs.some((ref) => !ref) ||
+    typeof loved !== "boolean"
   ) {
     return { ok: false, error: "Invalid batch of tracks." };
   }
@@ -250,7 +260,7 @@ export async function unloveTracks(tracks: TrackRef[]): Promise<UnloveResult> {
     const startedAt = Date.now();
 
     try {
-      await setTrackLoved(session.key, ref.artist, ref.track, false);
+      await setTrackLoved(session.key, ref.artist, ref.track, loved);
     } catch (error) {
       if (error instanceof LastFmApiError && error.code === RATE_LIMIT_ERROR) {
         rateLimited = true;
@@ -265,15 +275,80 @@ export async function unloveTracks(tracks: TrackRef[]): Promise<UnloveResult> {
       }
       failed.push({
         ...ref,
-        error: errorMessage(error, "Could not unlove this track."),
+        error: errorMessage(
+          error,
+          loved ? "Could not love this track." : "Could not unlove this track.",
+        ),
       });
     }
 
     processed++;
-    await sleep(UNLOVE_MIN_INTERVAL_MS - (Date.now() - startedAt));
+    await sleep(LOVE_MIN_INTERVAL_MS - (Date.now() - startedAt));
   }
 
   return { ok: true, processed, failed, rateLimited };
+}
+
+export type ExportPagesResult = ActionResult<{
+  rows: ScrobbleExportRow[];
+  total: number;
+  totalPages: number;
+}>;
+
+/** Several pages of scrobble history (newest first) up to the `to` time. */
+export async function exportScrobblePages(
+  pages: number[],
+  to: number,
+): Promise<ExportPagesResult> {
+  const session = await getSession();
+  if (!session) return notLoggedIn;
+
+  if (
+    !Array.isArray(pages) ||
+    !pages.length ||
+    pages.length > EXPORT_PAGES_PER_CALL ||
+    !pages.every((page) => Number.isSafeInteger(page) && page > 0) ||
+    !Number.isSafeInteger(to) ||
+    to <= 0
+  ) {
+    return { ok: false, error: "Invalid export request." };
+  }
+
+  const startedAt = Date.now();
+
+  try {
+    const responses = await Promise.all(
+      pages.map((page) =>
+        getRecentTracks(session.name, page, EXPORT_PAGE_SIZE, to),
+      ),
+    );
+    const { total, totalPages } = responses[0].recenttracks["@attr"];
+    const rows = responses
+      .flatMap(({ recenttracks }) => recenttracks.track)
+      // Skip "now playing", which Last.fm adds to every page.
+      .filter((track) => track.date)
+      .map((track) => ({
+        timestamp: Number(track.date!.uts),
+        artist: track.artist.name,
+        album: track.album["#text"],
+        track: track.name,
+        loved: track.loved === "1",
+      }));
+
+    // Keep a steady pace of about 4 requests per second.
+    await sleep(EXPORT_MIN_CALL_MS - (Date.now() - startedAt));
+    return {
+      ok: true,
+      rows,
+      total: Number(total),
+      totalPages: Number(totalPages),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: errorMessage(error, "Could not load your scrobbles."),
+    };
+  }
 }
 
 // Re-render the page in the same response so the recent scrobbles list

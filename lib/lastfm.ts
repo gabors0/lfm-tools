@@ -213,17 +213,40 @@ async function parseLastFmResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+// Last.fm read errors that usually succeed on a second try: "operation
+// failed", "service offline" and "temporarily unavailable".
+const TRANSIENT_ERRORS = new Set([8, 11, 16]);
+const READ_RETRY_DELAYS_MS = [400, 1200];
+
+function isTransient(error: unknown) {
+  if (error instanceof LastFmApiError) {
+    // No code means an HTTP error without a Last.fm error body (e.g. a 502).
+    return error.code === undefined || TRANSIENT_ERRORS.has(error.code);
+  }
+  // fetch() rejects with a TypeError on network failures.
+  return error instanceof TypeError;
+}
+
 async function lastFmGet<T>(params: Record<string, string>): Promise<T> {
   const searchParams = new URLSearchParams({
     ...params,
     api_key: getLastFmApiKey(),
     format: "json",
   });
-  const response = await fetch(`${LASTFM_API_URL}?${searchParams}`, {
-    cache: "no-store",
-  });
 
-  return parseLastFmResponse<T>(response);
+  // Reads are safe to repeat, so retry Last.fm's frequent transient errors.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(`${LASTFM_API_URL}?${searchParams}`, {
+        cache: "no-store",
+      });
+      return await parseLastFmResponse<T>(response);
+    } catch (error) {
+      const delay = READ_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isTransient(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 async function lastFmPost<T>(
@@ -273,14 +296,83 @@ export function getLovedTracks(user: string, page = 1, limit = 50) {
   });
 }
 
-export function getRecentTracks(user: string, page = 1, limit = 50) {
-  return lastFmGet<RecentTracksResponse>({
+export async function getRecentTracks(
+  user: string,
+  page = 1,
+  limit = 50,
+  // Only scrobbles up to this unix time, so paging is not shifted by new ones.
+  to?: number,
+) {
+  const data = await lastFmGet<RecentTracksResponse>({
     method: "user.getRecentTracks",
     user,
     page: String(page),
     limit: String(limit),
     extended: "1",
+    ...(to ? { to: String(to) } : {}),
   });
+  // A page with a single entry (e.g. only "now playing") comes back as an
+  // object rather than an array.
+  data.recenttracks.track = [data.recenttracks.track ?? []].flat();
+  return data;
+}
+
+export type ScrobblePage = {
+  tracks: RecentTrack[];
+  total: number;
+  totalPages: number;
+};
+
+/**
+ * One page of scrobble history in either order. Last.fm only pages newest
+ * first, so an oldest-first page is cut from the (at most two) newest-first
+ * pages that hold it.
+ */
+export async function getScrobblePage(
+  user: string,
+  page: number,
+  order: "newest" | "oldest",
+  pageSize = 50,
+): Promise<ScrobblePage> {
+  if (order === "newest") {
+    const { recenttracks } = await getRecentTracks(user, page, pageSize);
+    return {
+      // Last.fm repeats "now playing" on every page; only show it on the first.
+      tracks:
+        page === 1
+          ? recenttracks.track
+          : recenttracks.track.filter((track) => track.date),
+      total: Number(recenttracks["@attr"].total),
+      totalPages: Number(recenttracks["@attr"].totalPages),
+    };
+  }
+
+  const { recenttracks: head } = await getRecentTracks(user, 1, 1);
+  const total = Number(head["@attr"].total);
+  const totalPages = Math.ceil(total / pageSize);
+  if (page > totalPages) return { tracks: [], total, totalPages };
+
+  // Newest-first positions [start, end) hold this oldest-first page.
+  const start = Math.max(0, total - page * pageSize);
+  const end = total - (page - 1) * pageSize;
+  const firstPage = Math.floor(start / pageSize) + 1;
+  const lastPage = Math.floor((end - 1) / pageSize) + 1;
+  const pages = await Promise.all(
+    Array.from({ length: lastPage - firstPage + 1 }, (_, index) =>
+      getRecentTracks(user, firstPage + index, pageSize),
+    ),
+  );
+  // "Now playing" is added to every page and is not part of the history.
+  const newestFirst = pages
+    .flatMap(({ recenttracks }) => recenttracks.track)
+    .filter((track) => track.date);
+  const offset = start - (firstPage - 1) * pageSize;
+
+  return {
+    tracks: newestFirst.slice(offset, offset + end - start).reverse(),
+    total,
+    totalPages,
+  };
 }
 
 export async function getAllLovedTracks(user: string) {
