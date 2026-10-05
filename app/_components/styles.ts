@@ -1,5 +1,9 @@
-export const primaryButton =
-  "flex items-center justify-center gap-2 rounded-sm bg-linear-to-b from-lastfm-start to-lastfm-end px-5 py-2.5 font-medium text-white transition-[filter] hover:brightness-115 active:translate-y-px disabled:pointer-events-none disabled:opacity-50";
+const gradientButton =
+  "flex items-center justify-center gap-2 rounded-sm bg-linear-to-b from-lastfm-start to-lastfm-end font-medium text-white transition-[filter] hover:brightness-115 active:translate-y-px disabled:pointer-events-none disabled:opacity-50";
+
+export const primaryButton = `${gradientButton} px-5 py-2.5`;
+
+export const smallPrimaryButton = `${gradientButton} px-3 py-1.5 text-sm`;
 
 export const secondaryButton =
   "rounded-sm border border-border px-4 py-2 text-sm transition-colors hover:border-lastfm-start hover:text-lastfm-start disabled:pointer-events-none disabled:opacity-50";

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ApiError } from "@/app/_components/api-error";
 import { LoveButton } from "@/app/_components/love-button";
+import { smallPrimaryButton } from "@/app/_components/styles";
 import {
   getLovedTracks,
   LastFmApiError,
@@ -60,7 +61,7 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
             {Number(lovedtracks["@attr"].total) > 0 && (
               <Link
                 href="/loved/clear"
-                className="rounded-sm border border-lastfm-start/50 px-3 py-1.5 text-lastfm-start transition-colors hover:bg-lastfm-start hover:text-white"
+                className={smallPrimaryButton}
               >
                 clear all…
               </Link>
