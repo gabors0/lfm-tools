@@ -1,36 +1,135 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Last.fm Toolbox
 
-## Getting Started
+A small Next.js app in the spirit of Open Scrobbler, plus a few tools Last.fm
+itself does not offer.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Scrobble a track**: artist, track, optional album and album artist, either
+  "just now" or at a specific time within the last 14 days.
+- **Scrobble an album**: search Last.fm, pick tracks from the tracklist, and
+  scrobble them back to back so the last one ends when you finished listening.
+- **Recent scrobbles**: love or unlove each scrobble, re-send it with fixes
+  ("edit"), or open it in your Last.fm library to delete it.
+- **Loved tracks**: unlove single tracks, or **clear all loved tracks** in
+  rate-limited batches. You can download a JSON backup first, and stop or resume
+  at any time.
+
+Last.fm's API has no way to edit or delete scrobbles. "Edit" therefore sends a
+corrected copy at the original time, and the original has to be deleted on the
+Last.fm website. The app links straight to the right library page.
+
+## First-time setup
+
+1. Create a [Last.fm API account](https://www.last.fm/api/account/create).
+2. In that API account, set the callback URL to:
+
+   ```text
+   http://localhost:3000/api/auth/lastfm/callback
+   ```
+
+   For a deployed app, replace the origin with your real HTTPS domain and update
+   the callback in Last.fm too.
+
+3. Copy the example environment file:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. Put your Last.fm **API key** and **shared secret** in `.env.local`. Generate
+   the cookie-encryption secret with:
+
+   ```bash
+   openssl rand -base64 32
+   ```
+
+   Do not prefix these names with `NEXT_PUBLIC_`: all three values must stay on
+   the server. `.env.local` is ignored by Git.
+
+5. Start the app and open [http://localhost:3000](http://localhost:3000):
+
+   ```bash
+   bun dev
+   ```
+
+Click **Log in with Last.fm**, approve the app on Last.fm, and Last.fm will send
+the browser back to the callback route.
+
+## What the backend is doing
+
+The login flow has three parts:
+
+1. `GET /api/auth/lastfm/login` redirects the browser to Last.fm.
+2. Last.fm redirects to `GET /api/auth/lastfm/callback?token=...` with a one-time
+   token after the user approves access.
+3. The callback signs an `auth.getSession` request with the shared secret,
+   exchanges the token for a Last.fm session, encrypts it, and stores it in an
+   HTTP-only cookie for 30 days.
+
+The shared secret never leaves the server. The user's Last.fm password is only
+entered on Last.fm and never passes through this app.
+
+## Reading Last.fm data
+
+The browser can use the local JSON endpoints after login:
+
+```js
+const response = await fetch("/api/lastfm/loved-tracks?page=1&limit=50");
+
+if (!response.ok) {
+  throw new Error("Could not load loved tracks");
+}
+
+const data = await response.json();
+console.log(data.lovedtracks.track);
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Available examples:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `GET /api/lastfm/loved-tracks?page=1&limit=50`
+- `GET /api/lastfm/recent-tracks?page=1&limit=50`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Server Components should skip the extra HTTP hop and call the helper directly:
 
-## Learn More
+```tsx
+import { getLovedTracks } from "@/lib/lastfm";
+import { getSession } from "@/lib/session";
 
-To learn more about Next.js, take a look at the following resources:
+export default async function MyPage() {
+  const session = await getSession();
+  if (!session) return <p>Please log in.</p>;
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+  const data = await getLovedTracks(session.name, 1, 50);
+  return <pre>{JSON.stringify(data.lovedtracks.track, null, 2)}</pre>;
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Many Last.fm read methods do not require a user session, but they still require
+your API key. The session is useful here because it securely tells the app which
+username was authenticated. Write methods such as `track.love`, `track.unlove`,
+and `track.scrobble` additionally require the session key (`sk`) and an API
+signature.
 
-## Deploy on Vercel
+To add another read method, add a typed wrapper beside `getLovedTracks` in
+`lib/lastfm.ts`, then call Last.fm with a method such as:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `user.getTopTracks`
+- `user.getTopArtists`
+- `user.getTopAlbums`
+- `user.getWeeklyTrackChart`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [Last.fm API method list](https://www.last.fm/api) for each method's
+parameters and whether authentication is required.
+
+## Important files
+
+- `lib/lastfm.ts` — Last.fm requests, response types, and request signing
+- `lib/session.ts` — encrypted cookie session handling
+- `app/api/auth/lastfm/*` — login and callback routes
+- `lib/scrobble-utils.ts` — shared, client-safe helpers (timestamps, limits, URLs)
+- `app/actions.ts` — Server Actions for scrobbling, loving, and clearing loved tracks
+- `app/api/lastfm/*` — JSON endpoints for browser-side code
+- `app/scrobble/*` — track and album scrobbling
+- `app/scrobbles/page.tsx` — recent scrobbles with love, edit, and delete links
+- `app/loved/page.tsx` and `app/loved/clear/*` — loved tracks and clear-all
