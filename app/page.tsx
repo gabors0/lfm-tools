@@ -130,7 +130,7 @@ function LogIn({ authError }: { authError?: string }) {
               engines and screen readers. */}
           <h1 className="sr-only">Last.fm Toolbox</h1>
           <p className="text-lg text-foreground/80">
-            Random last.fm utilites <br /> I couldnt&apos;t find elsewhere
+            Random last.fm utilities <br /> I couldn&apos;t find elsewhere
           </p>
         </div>
 
