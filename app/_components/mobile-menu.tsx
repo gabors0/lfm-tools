@@ -29,18 +29,20 @@ export function MobileMenu({ children }: { children: ReactNode }) {
           />
         </svg>
       </button>
-      {open && (
-        <div
-          id="mobile-menu"
-          // Close after following a link or submitting logout.
-          onClick={(event) => {
-            if ((event.target as Element).closest("a, button")) setOpen(false);
-          }}
-          className="absolute inset-x-0 top-full flex flex-col divide-y divide-border border-b-2 border-border bg-background shadow-lg shadow-border/60"
-        >
-          {children}
-        </div>
-      )}
+      {/* Hidden rather than unmounted: closing re-renders before the
+          click's default action, and Safari won't follow a link or submit
+          a form that is no longer in the document. */}
+      <div
+        id="mobile-menu"
+        hidden={!open}
+        // Close after following a link or submitting logout.
+        onClick={(event) => {
+          if ((event.target as Element).closest("a, button")) setOpen(false);
+        }}
+        className="absolute inset-x-0 top-full flex flex-col divide-y divide-border border-b-2 border-border bg-background shadow-lg shadow-border/60"
+      >
+        {children}
+      </div>
     </div>
   );
 }
