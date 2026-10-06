@@ -81,7 +81,7 @@ export default async function Home({ searchParams }: HomeProps) {
       <section id="scrobble" aria-labelledby="scrobble-heading" className="scroll-mt-6">
         <header className="mb-6">
           <p className="text-sm text-foreground/60">{session.name}</p>
-          <h1 id="scrobble-heading" className="text-3xl font-light">
+          <h1 id="scrobble-heading" className="text-3xl font-light mt-2">
             Scrobble
           </h1>
         </header>
@@ -130,8 +130,7 @@ function LogIn({ authError }: { authError?: string }) {
               engines and screen readers. */}
           <h1 className="sr-only">Last.fm Toolbox</h1>
           <p className="text-lg text-foreground/80">
-            Scrobble tracks and albums, sort your history, find duplicate
-            scrobbles, export your data, and clear or restore loved tracks.
+            Random last.fm utilites <br /> I couldnt&apos;t find elsewhere
           </p>
         </div>
 

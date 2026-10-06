@@ -29,7 +29,7 @@
   --color-surface: var(--surface);
   --color-lastfm-start: var(--lastfm-gradient-start);
   --color-lastfm-end: var(--lastfm-gradient-end);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-rag), Arial, Helvetica, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
@@ -38,6 +38,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-weight: 400;
 }
 
 button:hover {

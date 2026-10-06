@@ -39,7 +39,7 @@ export function MobileMenu({ children }: { children: ReactNode }) {
         onClick={(event) => {
           if ((event.target as Element).closest("a, button")) setOpen(false);
         }}
-        className="absolute inset-x-0 top-full flex flex-col divide-y divide-border border-b-2 border-border bg-background shadow-lg shadow-border/60"
+        className="absolute inset-x-0 top-full flex flex-col divide-y divide-border border-y-2 border-border bg-background shadow-lg shadow-border/60"
       >
         {children}
       </div>

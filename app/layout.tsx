@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import Link from "next/link";
 import { logout } from "@/app/actions";
 import { MobileMenu } from "@/app/_components/mobile-menu";
@@ -6,14 +7,25 @@ import { getSession } from "@/lib/session";
 import { siteDescription, siteName, siteUrl } from "@/lib/site";
 import "./globals.css";
 
+const rag = localFont({
+  src: [
+    { path: "./fonts/Rag-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Rag-Italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/Rag-Bold.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/Rag-BoldItalic.woff2", weight: "700", style: "italic" },
+    { path: "./fonts/Rag-Black.woff2", weight: "900", style: "normal" },
+  ],
+  variable: "--font-rag",
+});
+
 const pages = [
   ["loved tracks", "/loved"],
   ["duplicates", "/duplicates"],
   ["export", "/export"],
 ];
 const externalLinks = [
-  ["ko-fi", "https://ko-fi.com/gabors0"],
-  ["github", "https://github.com/gabors0/lfm-tools"],
+  ["ko-fi ↗", "https://ko-fi.com/gabors0"],
+  ["github ↗", "https://github.com/gabors0/lfm-tools"],
 ];
 
 const navLink =
@@ -57,13 +69,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const session = await getSession();
 
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className={`${rag.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <nav className="relative z-10 flex h-16 items-center justify-between border-b-2 border-border after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-3 after:bg-linear-to-b after:from-border/70 after:to-transparent">
+        <nav className="relative z-10 flex h-16 items-center justify-between border-b-2 border-border after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-3 after:bg-linear-to-b after:from-border/70 after:to-transparent max-lg:has-[#mobile-menu:not([hidden])]:after:hidden">
           <div className="flex h-full items-center">
             <Link
               href="/"
-              className="whitespace-nowrap px-4 text-xl font-light transition-colors hover:text-lastfm-start sm:text-2xl"
+              className="whitespace-nowrap px-4 text-xl font-extralight transition-colors hover:text-lastfm-start sm:text-2xl"
             >
               last.fm toolbox
             </Link>

@@ -52,7 +52,7 @@ export default async function LovedPage({ searchParams }: LovedPageProps) {
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-foreground/60">{session.name}</p>
-            <h1 className="text-3xl font-light">Loved tracks</h1>
+            <h1 className="text-3xl font-light mt-2">Loved tracks</h1>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <p className="text-foreground/60">
